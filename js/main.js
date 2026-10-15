@@ -62,6 +62,7 @@ var PLAYER_ANIMATION_SPEED = 2.2;
 var PLAYER_IDLE_ANIMATION = 'models/Idle.fbx';
 var playerModel = null;
 var playerModelLoading = false;
+var playerIdleClip = null;
 var GUARD_MODEL_SCALE = 0.01;
 var GUARD_WALK_SPEED = 1.3;
 // Modelos GLTF
@@ -1248,6 +1249,8 @@ function loadPlayerModel()
   setThiefVisible(false);
   if (playerModelLoading) return;
   playerModelLoading = true;
+  // El reposo se carga a la vez que el modelo, asi empieza de pie
+  loadPlayerIdle();
 
   var token = levelToken;
   pendingLoads++;
@@ -1285,7 +1288,7 @@ function loadPlayerModel()
       playerModel.walkAction.play();
       playerModel.walkAction.paused = true;
       playerModel.mixer.update(0);
-      loadPlayerIdle();
+      setupPlayerIdle();
     }
 
     attachPlayerModel();
@@ -1327,13 +1330,21 @@ function setThiefVisible(visible)
 function loadPlayerIdle()
 {
   fbxLoader.load(PLAYER_IDLE_ANIMATION, function(animData) {
-    playerModel.idleAction = playerModel.mixer.clipAction(animData.animations[0]);
-    player.userData.idleAction = playerModel.idleAction;
-    player.userData.moving = null;
-    setPlayerAnimation(false);
+    playerIdleClip = animData.animations[0];
+    setupPlayerIdle();
   }, undefined, function() {
     console.log('Sin animacion de reposo: el jugador se queda quieto en la pose de andar');
   });
+}
+
+// Crea la accion de reposo cuando ya estan el modelo y la animacion
+function setupPlayerIdle()
+{
+  if (!playerIdleClip || !playerModel || !playerModel.mixer || playerModel.idleAction) return;
+  playerModel.idleAction = playerModel.mixer.clipAction(playerIdleClip);
+  player.userData.idleAction = playerModel.idleAction;
+  player.userData.moving = null;
+  setPlayerAnimation(false);
 }
 
 // Andar agachado o reposo
@@ -1359,6 +1370,8 @@ function setPlayerAnimation(moving)
     walk.stop();
     idle.play();
   }
+  // Aplica ya la pose nueva aunque el juego este en pausa
+  playerModel.mixer.update(0);
 }
 
 // Flecha del jugador, solo se ve en el minimapa
