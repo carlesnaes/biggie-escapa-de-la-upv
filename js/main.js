@@ -1,37 +1,26 @@
-// Proyecto de Informatica Grafica - Biggie escapa de la UPV
-// Juego de sigilo: hay que llegar a la salida sin que te vean las camaras,
-// los guardias ni el coche patrulla.
-
-// Variables globales
 var renderer, scene, camera, cenital, clock, stats;
 var player, playerMarker, exitZone, skybox;
-var gameState = 'intro';      // intro | playing | levelComplete | won | lost
+var gameState = 'intro';
 var gameTime = 0;
-// Cronometro: tiempo del nivel actual (incluye reintentos) y de los ya superados
 var levelTime = 0;
 var levelTimes = [];
-// Nombre del jugador para el ranking global (ver ranking.js)
 var playerName = loadPlayerName();
 
-// Alerta: de 0 a 1. Si llega a 1 te descubren
 var alertLevel = 0;
-var ALERT_FILL_TIME = 0.45;   // segundos a la vista hasta ser descubierto
-var ALERT_EMPTY_TIME = 3.0;   // segundos para que se vacie al esconderse
-// Dificultad: se multiplican los valores de cada nivel
-var ENEMY_SPEED_FACTOR = 1.15;   // guardias, camaras y coche mas rapidos
-var VISION_RANGE_FACTOR = 1.1;   // ven un poco mas lejos
+var ALERT_FILL_TIME = 0.45;
+var ALERT_EMPTY_TIME = 3.0;
+var ENEMY_SPEED_FACTOR = 1.15;
+var VISION_RANGE_FACTOR = 1.1;
 var ALERT_COLOR = new THREE.Color(0xff2738);
 var currentLevel = 0;
-var levelToken = 0;           // Identifica la carga de nivel en curso (cargas asincronas).
+var levelToken = 0;
 var firstPerson = true;
 
-// Biggie escapa de la UPV: de clase, del edificio y del campus
 var levelNames = [
   'Prácticas del máster IARFID',
   'Pasillos del edificio 1B',
   'Campus de Vera'
 ];
-// De donde se escapa en cada nivel (para los mensajes)
 var levelEscapes = [
   'de la clase de prácticas del máster IARFID',
   'de los pasillos del edificio 1B',
@@ -50,7 +39,6 @@ var guards = [];
 var policeCars = [];
 var mixers = [];
 
-// Cargadores de texturas y modelos
 var textureLoader = new THREE.TextureLoader();
 var fbxLoader = new THREE.FBXLoader();
 var gltfLoader = new THREE.GLTFLoader();
@@ -59,24 +47,21 @@ var environmentMap = null;
 var pendingLoads = 0;
 
 var GUARD_MODEL = 'models/Unarmed Walk Forward.fbx';
-// Modelo animado del jugador
 var PLAYER_MODEL = 'models/Sneaking Forward.fbx';
 var PLAYER_MODEL_SCALE = 0.01;
-var PLAYER_ANIMATION_SPEED = 2.2;  // el clip de andar agachado es lento
-var PLAYER_IDLE_ANIMATION = 'models/Idle.fbx';  // animacion de reposo (sin skin)
-var playerModel = null;          // modelo del jugador ya cargado
+var PLAYER_ANIMATION_SPEED = 2.2;
+var PLAYER_IDLE_ANIMATION = 'models/Idle.fbx';
+var playerModel = null;
 var playerModelLoading = false;
-var GUARD_MODEL_SCALE = 0.01;   // el FBX viene en centimetros
-var GUARD_WALK_SPEED = 1.3;     // velocidad de avance del clip de andar (m/s)
+var GUARD_MODEL_SCALE = 0.01;
+var GUARD_WALK_SPEED = 1.3;
 var CAR_MODEL = 'models/police-car/scene.gltf';
 var CAMERA_MODEL = 'models/security_camera/scene.gltf';
-var CAMERA_HEIGHT = 2.7;       // altura del cabezal en la pared
-var CAMERA_ARM_LENGTH = 0.65;  // distancia del cabezal a la pared
-// Modelos sin esqueleto: se cargan una vez y se clonan
+var CAMERA_HEIGHT = 2.7;
+var CAMERA_ARM_LENGTH = 0.65;
 var modelCache = {};
 var CAR_LENGTH = 5.0;
 
-// Caras del cielo en el orden +X, -X, +Y, -Y, +Z, -Z
 var SKYBOX_FACES = [
   'images/skybox/Right.jpg', 'images/skybox/Left.jpg',
   'images/skybox/Up.jpg', 'images/skybox/Down.jpg',
@@ -97,7 +82,6 @@ var PLAYER_EYE_HEIGHT = 1.62;
 var THIRD_PERSON_DISTANCE = 4.2;
 var THIRD_PERSON_HEIGHT = 2.1;
 
-// Progreso (0..1) de la entrada de camara al empezar un nivel
 var introAnimation = { progress: 1 };
 
 var controls = {
@@ -107,11 +91,8 @@ var controls = {
   moveRight: false
 };
 
-// 1-inicializa
 init();
-// 2-crea la escena
 loadScene();
-// 3-renderiza
 render();
 
 function init()
@@ -123,13 +104,10 @@ function init()
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.outputEncoding = THREE.sRGBEncoding;
-  // Borrado manual porque se dibujan dos vistas (principal y minimapa)
   renderer.autoClear = false;
-  // Las sombras se calculan una vez por fotograma, no en cada vista
   renderer.shadowMap.autoUpdate = false;
   document.getElementById('container').appendChild(renderer.domElement);
 
-  // Monitor de FPS
   stats = new Stats();
   stats.showPanel(0);
   stats.domElement.style.left = 'auto';
@@ -142,13 +120,11 @@ function init()
   var aspectRatio = window.innerWidth / window.innerHeight;
   camera = new THREE.PerspectiveCamera(68, aspectRatio, 0.05, 400);
 
-  // Camara cenital del minimapa (el plano near deja fuera los techos)
   cenital = new THREE.OrthographicCamera(-14, 14, 14, -14, 36.3, 80);
   cenital.position.set(0, 40, 0);
   cenital.up.set(0, 0, -1);
   cenital.lookAt(0, 0, 0);
 
-  // Mapa de entorno con las mismas imagenes que el cielo
   environmentMap = new THREE.CubeTextureLoader().load(SKYBOX_FACES);
   environmentMap.encoding = THREE.sRGBEncoding;
 
@@ -159,7 +135,6 @@ function init()
   document.addEventListener('pointerlockchange', onPointerLockChange);
   window.addEventListener('blur', clearControls);
   renderer.domElement.addEventListener('click', requestMouseControl);
-  // Pantalla de inicio: se pide el nombre y se muestra el ranking global
   document.getElementById('player-name').value = playerName;
   document.getElementById('start-form').addEventListener('submit', startFromForm);
   showRanking();
@@ -168,7 +143,6 @@ function init()
 
 function loadScene()
 {
-  // ?nivel=2 o ?nivel=3 para probar un nivel concreto
   var requestedLevel = Number(
     new URLSearchParams(window.location.search).get('nivel')
   ) - 1;
@@ -180,7 +154,6 @@ function loadScene()
 
 function loadLevel(levelIndex)
 {
-  // Partida nueva: se borran los tiempos anteriores
   if (levelIndex === 0) levelTimes = [];
   levelTime = 0;
   currentLevel = levelIndex;
@@ -188,7 +161,6 @@ function loadLevel(levelIndex)
   gameTime = 0;
   clearControls();
 
-  // Cada nivel empieza con una escena nueva
   scene = new THREE.Scene();
   colliders = [];
   occluders = [];
@@ -218,7 +190,6 @@ function loadLevel(levelIndex)
   }
 
   player = createPlayer();
-  // En primera persona no se dibuja el propio personaje
   player.visible = !firstPerson;
   scene.add(player);
   loadPlayerModel();
@@ -233,10 +204,6 @@ function loadLevel(levelIndex)
   updateLoadingHud();
   resetGame();
 }
-
-// ---------------------------------------------------------------------------
-// Texturas y materiales
-// ---------------------------------------------------------------------------
 
 function loadTexture(path, repeatX, repeatY)
 {
@@ -253,7 +220,6 @@ function loadTexture(path, repeatX, repeatY)
   return texture;
 }
 
-// Material mate (Lambert)
 function createMatteMaterial(color, texture)
 {
   var options = { color: color };
@@ -261,7 +227,6 @@ function createMatteMaterial(color, texture)
   return new THREE.MeshLambertMaterial(options);
 }
 
-// Material brillante (Phong)
 function createShinyMaterial(color, texture, shininess, specular)
 {
   var options = {
@@ -273,22 +238,16 @@ function createShinyMaterial(color, texture, shininess, specular)
   return new THREE.MeshPhongMaterial(options);
 }
 
-// Material luminoso: no le afectan las luces (LEDs, pantallas, tiras de luz)
 function createGlowMaterial(color)
 {
   return new THREE.MeshBasicMaterial({ color: color });
 }
-
-// ---------------------------------------------------------------------------
-// Luces
-// ---------------------------------------------------------------------------
 
 function createLights()
 {
   var outdoor = currentLevel === 2;
   var office = currentLevel === 1;
 
-  // Luz ambiental
   var ambient = new THREE.AmbientLight(
     outdoor ? 0xbfd4e6 : (office ? 0xb9c6d8 : 0x8fa6c0),
     outdoor ? 0.5 : (office ? 0.42 : 0.38)
@@ -296,7 +255,6 @@ function createLights()
   ambient.name = 'luz ambiental';
   scene.add(ambient);
 
-  // Luz direccional con sombras
   var mainLight = new THREE.DirectionalLight(
     outdoor ? 0xfff1ce : (office ? 0xe8f1ff : 0xffffff),
     outdoor ? 1.0 : (office ? 0.6 : 0.7)
@@ -314,7 +272,6 @@ function createLights()
   mainLight.shadow.bias = -0.0004;
   scene.add(mainLight);
 
-  // Luz puntual de relleno desde el otro lado
   var fillLight = new THREE.PointLight(
     outdoor ? 0xaac8ff : 0x7fb0ff,
     outdoor ? 0.25 : 0.3,
@@ -326,10 +283,6 @@ function createLights()
   scene.add(fillLight);
 }
 
-// ---------------------------------------------------------------------------
-// Nivel 1: clase de practicas del master IARFID (laboratorio con racks)
-// ---------------------------------------------------------------------------
-
 function createDataCenterLevel()
 {
   playerStart.set(-13, 0.03, 8.6);
@@ -337,13 +290,11 @@ function createDataCenterLevel()
 
   createWarehouse();
 
-  // Camaras de seguridad: soporte -> cabezal giratorio -> foco
   createSecurityCamera(-15.2, 1, Math.PI / 2, 0.72, 0.0);
   createSecurityCamera(3, -11.2, 0, 0.68, 1.8);
   createSecurityCamera(15.2, 5, -Math.PI / 2, 0.62, 3.4);
   createSecurityCamera(6, 11.2, Math.PI, 0.5, 0.8, 9);
 
-  // Rutas de los guardias (por pasillos libres)
   var dataGuard = { speed: 2.0 };
   createGuard([
     [-12, -7], [-5, -7], [-5, -4], [-12, -4]
@@ -351,11 +302,9 @@ function createDataCenterLevel()
   createGuard([
     [7, 3], [13, 3], [13, 0], [7, 0]
   ], 1.5, dataGuard);
-  // Guardia que vigila el pasillo de la salida
   createGuard([
     [4, -9.6], [13, -9.6]
   ], 0.7, dataGuard);
-  // Guardia que recorre el pasillo de abajo
   createGuard([
     [0, 9.6], [13, 9.6]
   ], 1.0, dataGuard);
@@ -363,7 +312,6 @@ function createDataCenterLevel()
 
 function createCeiling(width, depth, height, color)
 {
-  // Solo se ve por debajo, asi no tapa el minimapa
   var ceiling = new THREE.Mesh(
     new THREE.PlaneGeometry(width, depth),
     createMatteMaterial(color)
@@ -388,7 +336,6 @@ function createWarehouse()
 {
   createCeiling(32, 24, 4.15, 0x263544);
 
-  // Suelo metalico
   createFloor(32, 24, createShinyMaterial(
     0x8f9aa6,
     loadTexture('images/pisometalico_1024.jpg', 8, 6),
@@ -401,19 +348,16 @@ function createWarehouse()
     loadTexture('images/metal_128.jpg', 10, 2)
   );
 
-  // Paredes exteriores del almacen.
   createStaticBox('pared norte', 0, 1.6, -11.6, 32, 3.2, 0.8, wallMaterial);
   createStaticBox('pared sur', 0, 1.6, 11.6, 32, 3.2, 0.8, wallMaterial);
   createStaticBox('pared oeste', -15.6, 1.6, 0, 0.8, 3.2, 24, wallMaterial);
   createStaticBox('pared este', 15.6, 1.6, 0, 0.8, 3.2, 24, wallMaterial);
 
-  // Tiras de luz a lo largo de las paredes
   createLightStrip(0, 0.32, -11.14, 30, 0.1);
   createLightStrip(0, 0.32, 11.14, 30, 0.1);
   createLightStrip(-15.14, 0.32, 0, 0.1, 22);
   createLightStrip(15.14, 0.32, 0, 0.1, 22);
 
-  // Tabiques interiores (cobertura)
   var partitionMaterial = createMatteMaterial(
     0x6f8294,
     loadTexture('images/metal_128.jpg', 3, 2)
@@ -421,7 +365,6 @@ function createWarehouse()
   createStaticBox('tabique central', -2.5, 1.35, 1.5, 0.8, 2.7, 7, partitionMaterial);
   createStaticBox('tabique inferior', 6, 1.35, -3, 6, 2.7, 0.8, partitionMaterial);
 
-  // Bancos de servidores
   createServerBank(-9, 6, 4, 3, 2.7);
   createServerBank(-8, -1, 3, 4, 2.8);
   createServerBank(1, 7, 4, 3, 2.6);
@@ -431,7 +374,6 @@ function createWarehouse()
   createServerBank(0, -7, 4, 3, 2.6);
 }
 
-// Caja fija: se dibuja y se registra como obstaculo
 function createStaticBox(name, x, y, z, width, height, depth, material)
 {
   var mesh = new THREE.Mesh(
@@ -451,7 +393,6 @@ function createStaticBox(name, x, y, z, width, height, depth, material)
     maxZ: z + depth / 2
   });
 
-  // Tambien tapa la linea de vision de camaras y guardias
   occluders.push(mesh);
   return mesh;
 }
@@ -467,7 +408,6 @@ function createLightStrip(x, y, z, width, depth)
   scene.add(strip);
 }
 
-// Fila de armarios de servidores
 function createServerBank(x, z, width, depth, height)
 {
   var group = new THREE.Group();
@@ -509,7 +449,6 @@ function createServerBank(x, z, width, depth, height)
     frontPanel.position.set(0, height / 2, cabinetDepth / 2 + 0.035);
     cabinet.add(frontPanel);
 
-    // Modulos y LEDs del frontal
     var moduleCount = 6;
     for (var moduleIndex = 0; moduleIndex < moduleCount; moduleIndex++) {
       var moduleY = 0.32 + moduleIndex * ((height - 0.58) / (moduleCount - 1));
@@ -541,7 +480,6 @@ function createServerBank(x, z, width, depth, height)
     group.add(cabinet);
   }
 
-  // Base comun de todos los armarios
   var base = new THREE.Mesh(
     new THREE.BoxGeometry(width + 0.14, 0.12, depth + 0.14),
     frameMaterial
@@ -561,16 +499,11 @@ function createServerBank(x, z, width, depth, height)
   });
 }
 
-// ---------------------------------------------------------------------------
-// Nivel 2: pasillos del edificio 1B
-// ---------------------------------------------------------------------------
-
 function createOfficeLevel()
 {
   playerStart.set(-19, 0.03, 13);
   exitPosition.set(19, 0, -13);
 
-  // Suelo de parquet
   createFloor(44, 32, createShinyMaterial(
     0xc9b59a,
     loadTexture('images/wood512.jpg', 11, 8),
@@ -590,7 +523,6 @@ function createOfficeLevel()
   createStaticBox('pared oficina oeste', -21.6, 1.6, 0, 0.8, 3.2, 32, exteriorMaterial);
   createStaticBox('pared oficina este', 21.6, 1.6, 0, 0.8, 3.2, 32, exteriorMaterial);
 
-  // Luces del techo
   createCeilingLamp(-16, 8);
   createCeilingLamp(-16, -7);
   createCeilingLamp(-5, 6);
@@ -598,7 +530,6 @@ function createOfficeLevel()
   createCeilingLamp(16, 7);
   createCeilingLamp(16, -8);
 
-  // Tabiques con huecos de puerta
   createStaticBox('pasillo uno norte', -10, 1.45, -10, 0.7, 2.9, 10, officeWallMaterial);
   createStaticBox('pasillo uno sur', -10, 1.45, 8, 0.7, 2.9, 14, officeWallMaterial);
   createStaticBox('pasillo dos norte', 0, 1.45, -11.5, 0.7, 2.9, 7, officeWallMaterial);
@@ -606,13 +537,11 @@ function createOfficeLevel()
   createStaticBox('pasillo tres norte', 10, 1.45, -9.5, 0.7, 2.9, 11, officeWallMaterial);
   createStaticBox('pasillo tres sur', 10, 1.45, 8.5, 0.7, 2.9, 13, officeWallMaterial);
 
-  // Franjas que marcan las puertas
   var doorMaterial = createGlowMaterial(0x2b5560);
   createGroundPatch(-10, -2, 3.2, 5.5, doorMaterial);
   createGroundPatch(0, -5, 3.2, 5.5, doorMaterial);
   createGroundPatch(10, -1, 3.2, 5.5, doorMaterial);
 
-  // Mesas de oficina (cobertura)
   createOfficeDesk(-16, 6, 3.4, 1.8);
   createOfficeDesk(-16, -4, 3.4, 1.8);
   createOfficeDesk(-5, 4, 3.2, 1.8);
@@ -641,13 +570,11 @@ function createOfficeLevel()
   createGuard([
     [2, 1], [8, 1], [8, 12], [2, 12]
   ], 0.6, officeGuard);
-  // Guardia en la parte de arriba del tercer pasillo
   createGuard([
     [2, -13], [8, -13], [8, -8], [2, -8]
   ], 1.8, officeGuard);
 }
 
-// Luz puntual bajo el techo de la oficina
 function createCeilingLamp(x, z)
 {
   var light = new THREE.PointLight(0xdceaff, 0.42, 11, 1.8);
@@ -724,10 +651,6 @@ function createOfficeDesk(x, z, width, depth)
   });
 }
 
-// ---------------------------------------------------------------------------
-// Nivel 3: campus de Vera (la huida final)
-// ---------------------------------------------------------------------------
-
 function createOutdoorLevel()
 {
   playerStart.set(-23, 0.03, 16);
@@ -735,27 +658,22 @@ function createOutdoorLevel()
 
   createSkybox();
 
-  // Hierba (mas grande que el recinto para que se vea tras la valla)
   createFloor(160, 160, createMatteMaterial(
     0xffffff,
     loadTexture('images/grass.png', 40, 40)
   ), 'hierba');
 
-  // Caminos de asfalto por donde pasa el coche patrulla. Los tramos no se
-  // solapan: dos planos a la misma altura en el mismo sitio parpadean
-  // (z-fighting), porque el z-buffer no sabe cual va delante
-  createRoad(-4, 4, -19, 19);      // avenida central
-  createRoad(-26, -4, 8, 12);      // calle de abajo, lado oeste
-  createRoad(4, 26, 8, 12);        // calle de abajo, lado este
-  createRoad(4, 26, -12, -8);      // calle de arriba
-  createRoad(20, 24, -8, 8);       // calle del este, entre las dos
+  createRoad(-4, 4, -19, 19);
+  createRoad(-26, -4, 8, 12);
+  createRoad(4, 26, 8, 12);
+  createRoad(4, 26, -12, -8);
+  createRoad(20, 24, -8, 8);
 
   createFenceSegment(0, -18.7, 52, true);
   createFenceSegment(0, 18.7, 52, true);
   createFenceSegment(-25.7, 0, 38, false);
   createFenceSegment(25.7, 0, 38, false);
 
-  // Palmeras y setos
   createPalmTree(-16, 14, 1.0);
   createPalmTree(-15, -2, 0.92);
   createPalmTree(-13, -12, 1.05);
@@ -774,7 +692,6 @@ function createOutdoorLevel()
   createHedge(18, -5, 4, 1.2, 1.25);
   createHedge(19, -12, 4, 1.2, 1.25);
 
-  // Coche aparcado y coche patrulla
   createPoliceCar(12, 15, Math.PI / 2, null);
   createPoliceCar(0, 10, Math.PI, [
     [0, 10], [0, -10], [22, -10], [22, 10]
@@ -795,17 +712,14 @@ function createOutdoorLevel()
   createGuard([
     [10, 0], [17, 0], [17, 7], [10, 7]
   ], 2.2, outdoorGuard);
-  // Guardia junto a la salida
   createGuard([
     [14, -15], [21, -15]
   ], 0.4, outdoorGuard);
-  // Guardia que vigila el camino de arriba
   createGuard([
     [-5, -15], [5, -15]
   ], 0.8, outdoorGuard);
 }
 
-// Cielo: cubo grande visto desde dentro
 function createSkybox()
 {
   var materials = SKYBOX_FACES.map(function(path) {
@@ -819,22 +733,19 @@ function createSkybox()
   scene.add(skybox);
 }
 
-var ROAD_TILE = 6;   // metros que ocupa una repeticion de la textura de asfalto
+var ROAD_TILE = 6;
 
-// Tramo de asfalto entre dos coordenadas X y dos Z
 function createRoad(minX, maxX, minZ, maxZ)
 {
   var centerX = (minX + maxX) / 2;
   var centerZ = (minZ + maxZ) / 2;
   var geometry = new THREE.PlaneGeometry(maxX - minX, maxZ - minZ);
 
-  // Coordenadas de textura segun la posicion en el mundo: asi dos tramos
-  // que se tocan siguen el mismo dibujo y no se nota el corte
   var position = geometry.attributes.position;
   var uv = geometry.attributes.uv;
   for (var i = 0; i < position.count; i++) {
     var worldX = centerX + position.getX(i);
-    var worldZ = centerZ - position.getY(i);   // el plano se tumba sobre X
+    var worldZ = centerZ - position.getY(i);
     uv.setXY(i, worldX / ROAD_TILE, -worldZ / ROAD_TILE);
   }
 
@@ -884,8 +795,6 @@ function createFenceSegment(x, z, length, horizontal)
       fenceMaterial
     );
     rail.position.y = railHeight;
-    // La valla no proyecta sombra: son muchas piezas finas y su sombra
-    // apenas se ve, pero cada una se dibuja otra vez en el mapa de sombras
     rail.castShadow = false;
     group.add(rail);
   });
@@ -961,7 +870,6 @@ function createPalmTree(x, z, scale)
       trunkHeight - 0.12,
       0.12 * scale
     );
-    // Los cocos quedan dentro de la sombra de las hojas: no hace falta
     coconut.castShadow = false;
     group.add(coconut);
   }
@@ -994,7 +902,6 @@ function createHedge(x, z, width, depth, height)
     createMatteMaterial(0xa59680)
   );
   planter.position.set(x, 0.15, z);
-  // La jardinera es muy baja (30 cm): su sombra queda tapada por la del seto
   planter.castShadow = false;
   planter.receiveShadow = true;
   scene.add(planter);
@@ -1007,7 +914,6 @@ function createHedge(x, z, width, depth, height)
   });
 }
 
-// Coche de policia. Con ruta patrulla (faros + campo de vision), sin ruta queda aparcado
 function createPoliceCar(x, z, angle, routeCoordinates)
 {
   var group = new THREE.Group();
@@ -1015,7 +921,6 @@ function createPoliceCar(x, z, angle, routeCoordinates)
   group.position.set(x, 0, z);
   group.rotation.y = angle;
 
-  // Luz del techo (alterna rojo y azul)
   var beacon = new THREE.PointLight(0xff2a2a, 1.1, 9, 1.5);
   beacon.name = 'luz del puente';
   beacon.position.set(0, 2.0, -0.4);
@@ -1037,7 +942,6 @@ function createPoliceCar(x, z, angle, routeCoordinates)
       return new THREE.Vector3(point[0], 0, point[1]);
     });
 
-    // Faros
     var headlight = new THREE.SpotLight(
       0xfff0c8, 1.3, 16, THREE.MathUtils.degToRad(24), 0.45, 1.2
     );
@@ -1050,11 +954,9 @@ function createPoliceCar(x, z, angle, routeCoordinates)
     group.add(headlight);
 
     car.field = createVisionField(car.range, car.halfAngle, 0xff8738, 0.2);
-    // El campo de vision empieza en el frontal del coche
     car.field.position.set(0, 0.03, CAR_LENGTH / 2);
     group.add(car.field);
   } else {
-    // El coche aparcado es un obstaculo fijo
     var alongX = Math.abs(Math.sin(angle)) > 0.5;
     colliders.push({
       minX: x - (alongX ? CAR_LENGTH / 2 : 1.1),
@@ -1063,8 +965,6 @@ function createPoliceCar(x, z, angle, routeCoordinates)
       maxZ: z + (alongX ? 1.1 : CAR_LENGTH / 2)
     });
 
-    // Caja invisible del tamano del coche para los rayos de vision: el modelo
-    // tiene mas de 250.000 triangulos y probar el rayo contra el es muy lento
     var blocker = new THREE.Mesh(
       new THREE.BoxGeometry(2.2, 1.5, CAR_LENGTH),
       new THREE.MeshBasicMaterial()
@@ -1081,7 +981,6 @@ function createPoliceCar(x, z, angle, routeCoordinates)
   loadCarModel(group);
 }
 
-// Cada coche carga su propio GLTF (el modelo tiene esqueleto y no se puede clonar)
 function loadCarModel(group)
 {
   var token = levelToken;
@@ -1100,7 +999,6 @@ function loadCarModel(group)
   });
 }
 
-// Orienta el coche a lo largo de Z, lo escala a 5 m y lo apoya en el suelo
 function normalizeCarModel(model)
 {
   var wrapper = new THREE.Group();
@@ -1128,7 +1026,6 @@ function normalizeCarModel(model)
     if (!child.isMesh) return;
     child.castShadow = true;
     child.receiveShadow = true;
-    // El cristal original (transmission) es muy lento: se cambia por Phong transparente
     if (child.material.transmission) {
       child.material = new THREE.MeshPhongMaterial({
         color: 0x6f8fa8,
@@ -1142,10 +1039,6 @@ function normalizeCarModel(model)
   return wrapper;
 }
 
-// ---------------------------------------------------------------------------
-// Jugador y salida
-// ---------------------------------------------------------------------------
-
 function createPlayer()
 {
   var group = new THREE.Group();
@@ -1157,7 +1050,6 @@ function createPlayer()
   var skinMaterial = createMatteMaterial(0xd6a47e);
   var eyeMaterial = createShinyMaterial(0x050607, null, 80, 0xffffff);
 
-  // Torso
   var torso = new THREE.Mesh(
     new THREE.BoxGeometry(0.7, 0.88, 0.42),
     clothMaterial
@@ -1166,7 +1058,6 @@ function createPlayer()
   torso.castShadow = true;
   group.add(torso);
 
-  // Rayas de ladron
   [0.86, 1.09, 1.32].forEach(function(stripeY) {
     var stripe = new THREE.Mesh(
       new THREE.BoxGeometry(0.715, 0.085, 0.43),
@@ -1185,7 +1076,6 @@ function createPlayer()
   backpack.castShadow = true;
   group.add(backpack);
 
-  // Correa de la mochila
   var strap = new THREE.Mesh(
     new THREE.BoxGeometry(0.08, 0.88, 0.045),
     secondaryMaterial
@@ -1204,7 +1094,6 @@ function createPlayer()
   group.add(leftLeg);
   group.add(rightLeg);
 
-  // Cabeza con pasamontanas
   var head = new THREE.Mesh(
     new THREE.SphereGeometry(0.34, 16, 12),
     clothMaterial
@@ -1238,7 +1127,6 @@ function createPlayer()
   beanie.castShadow = true;
   group.add(beanie);
 
-  // Aro luminoso bajo el personaje
   var playerRing = new THREE.Mesh(
     new THREE.TorusGeometry(0.72, 0.05, 8, 32),
     new THREE.MeshBasicMaterial({
@@ -1294,8 +1182,6 @@ function createThiefLeg(clothMaterial, shoeMaterial, x)
   return leg;
 }
 
-// Carga el modelo animado del jugador una sola vez y lo reutiliza en
-// todos los niveles. Mientras carga solo se ve el aro.
 function loadPlayerModel()
 {
   if (playerModel) {
@@ -1354,10 +1240,8 @@ function loadPlayerModel()
   });
 }
 
-// Pone el modelo cargado en el jugador del nivel actual
 function attachPlayerModel()
 {
-  // Se quitan las primitivas menos el aro
   var oldParts = player.children.filter(function(child) {
     return child.geometry === undefined || child.geometry.type !== 'TorusGeometry';
   });
@@ -1375,7 +1259,6 @@ function attachPlayerModel()
   setPlayerAnimation(false);
 }
 
-// Muestra u oculta el ladron de primitivas (el aro siempre se ve)
 function setThiefVisible(visible)
 {
   player.children.forEach(function(child) {
@@ -1385,7 +1268,6 @@ function setThiefVisible(visible)
   });
 }
 
-// Animacion de reposo en un FBX aparte, como en el ejemplo de Mixamo
 function loadPlayerIdle()
 {
   fbxLoader.load(PLAYER_IDLE_ANIMATION, function(animData) {
@@ -1398,14 +1280,12 @@ function loadPlayerIdle()
   });
 }
 
-// Andar al moverse y reposo al estar quieto
 function setPlayerAnimation(moving)
 {
   var walk = player.userData.walkAction;
   var idle = player.userData.idleAction;
   if (!walk) return;
 
-  // Sin animacion de reposo solo se pausa la de andar
   if (!idle) {
     walk.paused = !moving;
     return;
@@ -1424,7 +1304,6 @@ function setPlayerAnimation(moving)
   }
 }
 
-// Flecha del jugador para el minimapa
 function createPlayerMarker()
 {
   var group = new THREE.Group();
@@ -1434,7 +1313,6 @@ function createPlayerMarker()
     new THREE.ConeGeometry(0.7, 1.6, 3),
     new THREE.MeshBasicMaterial({ color: 0xffe14d })
   );
-  // El cono apunta a +Y, se gira para que mire a +Z
   arrow.rotation.x = Math.PI / 2;
   group.add(arrow);
 
@@ -1474,7 +1352,6 @@ function createExit()
   return group;
 }
 
-// Carga un GLTF una sola vez y devuelve un clon a cada llamada
 function loadSharedModel(url, onLoad)
 {
   var entry = modelCache[url];
@@ -1509,7 +1386,6 @@ function loadSharedModel(url, onLoad)
   });
 }
 
-// Cambia el material del modelo por un Phong con su color y su textura
 function toPhongMaterial(material)
 {
   var phong = new THREE.MeshPhongMaterial({
@@ -1524,12 +1400,6 @@ function toPhongMaterial(material)
   return phong;
 }
 
-// ---------------------------------------------------------------------------
-// Enemigos: camaras de seguridad y guardias
-// ---------------------------------------------------------------------------
-
-// Camara de seguridad colgada de una pared. (x, z) es el punto de la pared y
-// baseAngle la direccion hacia la que mira (hacia fuera de la pared)
 function createSecurityCamera(
   x, z, baseAngle, sweep, phase, customRange, customAngle
 )
@@ -1537,7 +1407,6 @@ function createSecurityCamera(
   var group = new THREE.Group();
   group.name = 'camara de seguridad';
   group.position.set(x, 0, z);
-  // El eje Z local apunta hacia fuera de la pared
   group.rotation.y = baseAngle;
 
   var metalMaterial = createShinyMaterial(
@@ -1547,22 +1416,18 @@ function createSecurityCamera(
     0xffffff
   );
 
-  // En el exterior no hay paredes: la camara va en un pilar de hormigon
   if (currentLevel === 2) {
     createCameraColumn(group, x, z, baseAngle);
   }
 
-  // Soporte fijo a la pared
   var mount = new THREE.Group();
   mount.name = 'soporte';
   group.add(mount);
 
-  // Nodo que gira; sus hijos giran con el
   var pivot = new THREE.Group();
   pivot.position.set(0, CAMERA_HEIGHT, CAMERA_ARM_LENGTH);
   group.add(pivot);
 
-  // Cabezal de primitivas mientras carga el modelo
   var head = new THREE.Group();
   head.name = 'cabezal';
   pivot.add(head);
@@ -1602,8 +1467,6 @@ function createSecurityCamera(
   field.position.y = -CAMERA_HEIGHT + 0.04;
   pivot.add(field);
 
-  // Foco de la camara (sin sombras: cada foco con sombras obliga a dibujar
-  // la escena entera otra vez en cada fotograma)
   var spot = new THREE.SpotLight(0xffd86a, 1.25, range, halfAngle, 0.35, 1.6);
   spot.position.set(0, 0.2, 0.6);
   spot.castShadow = false;
@@ -1627,12 +1490,9 @@ function createSecurityCamera(
   });
 }
 
-// El modelo se divide en dos copias: el brazo queda fijo en la pared y el
-// cabezal gira con el pivot. Las medidas son las del modelo original.
 function attachCameraModel(model, mount, head)
 {
   var scale = 0.09;
-  // Punto del brazo sobre el que gira el cabezal y placa de la pared (z)
   var axis = new THREE.Vector3(0, 4.7, -1.0);
   var wallZ = -8.4;
 
@@ -1645,7 +1505,6 @@ function attachCameraModel(model, mount, head)
   armCopy.position.set(0, CAMERA_HEIGHT - axis.y * scale, -wallZ * scale);
   mount.add(armCopy);
 
-  // El objetivo del modelo mira hacia +X: se gira para que mire hacia +Z
   var headTurn = new THREE.Group();
   headTurn.rotation.y = -Math.PI / 2;
   headCopy.scale.set(scale, scale, scale);
@@ -1660,7 +1519,6 @@ function attachCameraModel(model, mount, head)
   });
 }
 
-// Deja visibles solo las piezas del brazo (keepArm) o solo las del cabezal
 function splitCameraModel(model, keepArm)
 {
   model.updateMatrixWorld(true);
@@ -1672,7 +1530,6 @@ function splitCameraModel(model, keepArm)
   });
 }
 
-// Pilar donde se cuelga la camara en el exterior
 function createCameraColumn(group, x, z, angle)
 {
   var size = 0.5;
@@ -1697,7 +1554,6 @@ function createCameraColumn(group, x, z, angle)
   });
 }
 
-// Guardia: grupo con el campo de vision y el modelo FBX animado
 function createGuard(routeCoordinates, phase, options)
 {
   options = options || {};
@@ -1743,7 +1599,6 @@ function loadGuardModel(guard)
 
   fbxLoader.load(GUARD_MODEL, function(object) {
     finishLoad(token);
-    // Si se ha cambiado de nivel mientras cargaba, se descarta
     if (token !== levelToken) return;
 
     object.name = 'modelo guardia';
@@ -1753,7 +1608,6 @@ function loadGuardModel(guard)
       child.castShadow = true;
       var materials = Array.isArray(child.material) ? child.material : [child.material];
       materials.forEach(function(material) {
-        // Sin transparencias
         material.transparent = false;
         material.opacity = 1.0;
         if (material.map) material.map.encoding = THREE.sRGBEncoding;
@@ -1761,7 +1615,6 @@ function loadGuardModel(guard)
     });
     guard.group.add(object);
 
-    // Animacion de andar
     var walkClip = null;
     for (var i = 0; i < object.animations.length; i++) {
       if (object.animations[i].tracks.length > 0) {
@@ -1772,10 +1625,8 @@ function loadGuardModel(guard)
     if (walkClip) {
       guard.mixer = new THREE.AnimationMixer(object);
       guard.action = guard.mixer.clipAction(walkClip);
-      // El clip va a la velocidad del guardia
       guard.action.timeScale = guard.speed / GUARD_WALK_SPEED;
       guard.action.play();
-      // Primer fotograma para que no salga en pose T
       guard.mixer.update(0);
       mixers.push(guard.mixer);
     }
@@ -1787,7 +1638,6 @@ function loadGuardModel(guard)
   });
 }
 
-// Guardia de primitivas (solo si falla el FBX)
 function createGuardFallback(guard)
 {
   var group = guard.group;
@@ -1891,8 +1741,6 @@ function createGuardLeg(material, x)
   return leg;
 }
 
-// Campo de vision: sector circular hecho con BufferGeometry (vertice 0 en el
-// origen y el resto sobre el arco)
 function createVisionField(range, halfAngle, color, opacity)
 {
   var segments = 24;
@@ -1906,7 +1754,6 @@ function createVisionField(range, halfAngle, color, opacity)
     vertices[base + 2] = Math.cos(angle) * range;
   }
 
-  // Triangulos origen - punto i - punto i+1 (normal hacia +Y)
   var indices = [];
   for (var j = 1; j <= segments; j++) {
     indices.push(0, j, j + 1);
@@ -1933,13 +1780,8 @@ function createVisionField(range, halfAngle, color, opacity)
   return field;
 }
 
-// ---------------------------------------------------------------------------
-// Eventos de teclado y raton
-// ---------------------------------------------------------------------------
-
 function onKeyDown(event)
 {
-  // Mientras se escribe el nombre las teclas no controlan el juego
   if (event.target.tagName === 'INPUT') return;
 
   switch (event.code) {
@@ -1963,19 +1805,16 @@ function onKeyDown(event)
       if (gameState === 'playing' || gameState === 'intro') toggleCameraMode();
       break;
     case 'KeyR':
-      // Mantener pulsada la tecla no reinicia una y otra vez
       if (!event.repeat) restartGame();
       break;
   }
 }
 
-// Tecla R: partida nueva desde el nivel 1 y con los tiempos a cero
 function restartGame()
 {
   loadLevel(0);
 }
 
-// Boton "Empezar": guarda el nombre y captura el raton
 function startFromForm(event)
 {
   event.preventDefault();
@@ -1988,7 +1827,6 @@ function startFromForm(event)
   playerName = name;
   input.value = name;
   savePlayerName(name);
-  // Sin quitar el foco, las teclas WASD seguirian yendo al campo de texto
   input.blur();
   requestMouseControl();
 }
@@ -2023,7 +1861,6 @@ function clearControls()
   controls.moveRight = false;
 }
 
-// Tecla F: primera / tercera persona
 function toggleCameraMode()
 {
   firstPerson = !firstPerson;
@@ -2045,7 +1882,6 @@ function onPointerLockChange()
     ? 'Ratón activo · Esc: pausar'
     : 'Haz clic en el escenario para jugar';
 
-  // La pantalla de inicio solo se ve hasta la primera vez que se juega
   if (mouseCaptured) {
     document.getElementById('start-screen').classList.remove('visible');
   }
@@ -2076,17 +1912,12 @@ function updateAspectRatio()
   camera.updateProjectionMatrix();
 }
 
-// ---------------------------------------------------------------------------
-// Actualizacion por fotograma
-// ---------------------------------------------------------------------------
-
 function update(delta, time)
 {
   TWEEN.update(time);
 
   var mouseCaptured = document.pointerLockElement === renderer.domElement;
 
-  // Sin el raton capturado el juego esta en pausa
   if (gameState === 'playing' && mouseCaptured) {
     gameTime += delta;
     levelTime += delta;
@@ -2096,7 +1927,6 @@ function update(delta, time)
     updatePoliceCars(delta);
     updateMixers(delta);
 
-    // Matrices al dia antes de pedir posiciones globales
     scene.updateMatrixWorld(true);
     checkEnemyVision(delta);
 
@@ -2105,7 +1935,6 @@ function update(delta, time)
     }
   }
 
-  // En la entrada los guardias ya se animan
   if (gameState === 'intro') updateMixers(delta);
 
   updateBeacons();
@@ -2147,7 +1976,6 @@ function updatePlayer(delta)
   direction.normalize();
   var movement = direction.multiplyScalar(PLAYER_SPEED * delta);
 
-  // Ejes por separado para deslizarse por las paredes
   var nextX = player.position.x + movement.x;
   if (isPositionFree(nextX, player.position.z, PLAYER_RADIUS)) {
     player.position.x = nextX;
@@ -2161,7 +1989,6 @@ function updatePlayer(delta)
   setThiefPose(Math.sin(gameTime * 10) * 0.42);
 }
 
-// Balanceo del ladron de primitivas
 function setThiefPose(walk)
 {
   if (!player.userData.leftArm) return;
@@ -2195,7 +2022,6 @@ function updateSecurityCameras()
   });
 }
 
-// Avanza hacia el siguiente punto de la ruta
 function followRoute(mover, delta, radius)
 {
   var target = mover.route[mover.routeIndex];
@@ -2214,7 +2040,6 @@ function followRoute(mover, delta, radius)
     direction.clone().multiplyScalar(step)
   );
 
-  // Si choca con algo pasa al siguiente punto
   if (isPositionFree(nextPosition.x, nextPosition.z, radius)) {
     mover.group.position.copy(nextPosition);
   } else {
@@ -2230,7 +2055,6 @@ function updateGuards(delta)
   guards.forEach(function(guard) {
     followRoute(guard, delta, 0.42);
 
-    // Piernas del guardia de primitivas
     if (guard.leftLeg) {
       var walk = Math.sin(gameTime * 8 + guard.phase) * 0.38;
       guard.leftLeg.rotation.x = walk;
@@ -2245,7 +2069,6 @@ function updatePoliceCars(delta)
     if (!car.route) return;
     followRoute(car, delta, 0.6);
 
-    // Atropello
     var local = car.group.worldToLocal(player.position.clone());
     if (Math.abs(local.x) < 1.3 && Math.abs(local.z) < CAR_LENGTH / 2 + 0.4) {
       finishGame(false, car.field, '¡El coche patrulla te ha alcanzado!');
@@ -2253,7 +2076,6 @@ function updatePoliceCars(delta)
   });
 }
 
-// Avanza todas las animaciones
 function updateMixers(delta)
 {
   mixers.forEach(function(mixer) {
@@ -2261,7 +2083,6 @@ function updateMixers(delta)
   });
 }
 
-// Luces de los coches: rojo / azul
 function updateBeacons()
 {
   var red = Math.floor(clock.elapsedTime * 4) % 2 === 0;
@@ -2271,7 +2092,6 @@ function updateBeacons()
   });
 }
 
-// Busca que enemigos ven al jugador y actualiza la alerta
 function checkEnemyVision(delta)
 {
   var origin = new THREE.Vector3();
@@ -2303,7 +2123,6 @@ function checkEnemyVision(delta)
     if (!car.route) return;
     car.group.getWorldQuaternion(worldQuaternion);
     forward.set(0, 0, 1).applyQuaternion(worldQuaternion).normalize();
-    // Origen en los faros, igual que el campo de vision dibujado
     car.group.getWorldPosition(origin);
     origin.addScaledVector(forward, CAR_LENGTH / 2);
     origin.y += 0.9;
@@ -2316,7 +2135,6 @@ function checkEnemyVision(delta)
   updateAlert(delta, watchers, message);
 }
 
-// La alerta sube mientras alguien te ve y baja cuando te escondes
 function updateAlert(delta, watchers, message)
 {
   if (watchers.length > 0) {
@@ -2325,7 +2143,6 @@ function updateAlert(delta, watchers, message)
     alertLevel = Math.max(0, alertLevel - delta / ALERT_EMPTY_TIME);
   }
 
-  // Los campos que te ven pasan poco a poco a rojo
   getAllVisionFields().forEach(function(field) {
     var watching = watchers.indexOf(field) >= 0;
     var amount = watching ? alertLevel : 0;
@@ -2361,7 +2178,6 @@ function updateAlertHud()
     alertBox.classList.remove('visible');
   }
   fill.style.width = Math.round(alertLevel * 100) + '%';
-  // De amarillo a rojo
   fill.style.background = 'hsl(' + Math.round(45 - 45 * alertLevel) + ', 100%, 55%)';
 }
 
@@ -2389,7 +2205,6 @@ function canSeePlayer(origin, forward, range, halfAngle)
     return false;
   }
 
-  // Un rayo comprueba si hay algo entre el enemigo y el jugador
   var rayDirection = playerTarget.clone().sub(origin);
   var playerDistance = rayDirection.length();
   rayDirection.normalize();
@@ -2421,7 +2236,6 @@ function updateExitAnimation()
   exitZone.rotation.y = clock.elapsedTime * 0.22;
 }
 
-// Camara: entrada, primera persona o tercera persona
 function updateCamera()
 {
   var forward = new THREE.Vector3(-Math.sin(viewYaw), 0, -Math.cos(viewYaw));
@@ -2431,14 +2245,12 @@ function updateCamera()
     player.position.z
   );
 
-  // Flecha del minimapa
   playerMarker.position.set(player.position.x, 3.2, player.position.z);
   playerMarker.rotation.y = viewYaw + Math.PI;
 
   var goal = firstPerson ? eye : thirdPersonPosition(forward);
 
   if (gameState === 'intro') {
-    // Bajada desde una vista elevada
     var overview = new THREE.Vector3(
       player.position.x - forward.x * 7,
       player.position.y + 13,
@@ -2454,7 +2266,6 @@ function updateCamera()
   }
 
   if (firstPerson) {
-    // Primera persona: desde el ojo mirando en la direccion de vista
     var lookDirection = new THREE.Vector3(
       forward.x * Math.cos(viewPitch),
       Math.sin(viewPitch),
@@ -2463,7 +2274,6 @@ function updateCamera()
     camera.position.copy(eye);
     camera.lookAt(new THREE.Vector3().addVectors(eye, lookDirection));
   } else {
-    // Tercera persona: detras y por encima del jugador
     camera.position.copy(goal);
     camera.lookAt(
       player.position.x + forward.x * 1.5,
@@ -2482,10 +2292,8 @@ function thirdPersonPosition(forward)
     Math.max(player.position.y + 0.4, player.position.y + up),
     player.position.z - forward.z * back
   );
-  // En interiores la camara no sube por encima del techo
   if (currentLevel < 2) desired.y = Math.min(desired.y, 3.7);
 
-  // Si hay una pared entre el jugador y la camara, la camara se acerca
   var head = new THREE.Vector3(
     player.position.x,
     player.position.y + 1.5,
@@ -2503,10 +2311,6 @@ function thirdPersonPosition(forward)
   }
   return desired;
 }
-
-// ---------------------------------------------------------------------------
-// Estado de la partida e interfaz
-// ---------------------------------------------------------------------------
 
 function finishGame(playerWon, detectedField, customMessage)
 {
@@ -2555,11 +2359,9 @@ function finishGame(playerWon, detectedField, customMessage)
   document.getElementById('result').classList.add('visible');
 }
 
-// Al completar los 3 niveles se guarda el tiempo total en el ranking global
 function sendScoreToRanking()
 {
   var text = document.getElementById('result-ranking');
-  // Solo cuentan las partidas completas, empezando desde el nivel 1
   for (var i = 0; i < levelNames.length; i++) {
     if (levelTimes[i] === undefined) return;
   }
@@ -2589,7 +2391,6 @@ function handleResultAction()
   }
 }
 
-// Formato m:ss.d
 function formatTime(seconds)
 {
   var minutes = Math.floor(seconds / 60);
@@ -2599,7 +2400,6 @@ function formatTime(seconds)
   return minutes + ':' + text;
 }
 
-// Suma de los niveles superados y del nivel en curso
 function getTotalTime()
 {
   var total = 0;
@@ -2640,7 +2440,6 @@ function updateLoadingHud()
     pendingLoads > 0 ? 'Cargando modelos 3D…' : '';
 }
 
-// Descuenta una carga pendiente del nivel actual
 function finishLoad(token)
 {
   if (token !== levelToken) return;
@@ -2696,7 +2495,6 @@ function resetGame()
   updateCamera();
 }
 
-// Entrada de camara al empezar un nivel
 function startIntro()
 {
   gameState = 'intro';
@@ -2717,10 +2515,6 @@ function restoreVisionField(field)
   field.material.opacity = field.userData.originalOpacity;
 }
 
-// ---------------------------------------------------------------------------
-// Render: vista principal + minimapa
-// ---------------------------------------------------------------------------
-
 function render(time)
 {
   requestAnimationFrame(render);
@@ -2731,14 +2525,12 @@ function render(time)
   var height = window.innerHeight;
   var miniSize = Math.floor(Math.min(width, height) / 4);
 
-  // Vista principal
   renderer.shadowMap.needsUpdate = true;
   renderer.setScissorTest(false);
   renderer.setViewport(0, 0, width, height);
   renderer.clear();
   renderer.render(scene, camera);
 
-  // Minimapa en la esquina inferior izquierda (la flecha solo se ve aqui)
   playerMarker.visible = true;
   cenital.position.set(player.position.x, 40, player.position.z);
   cenital.lookAt(player.position.x, 0, player.position.z);

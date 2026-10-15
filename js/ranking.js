@@ -1,10 +1,3 @@
-// Ranking global con Supabase
-// Se usa su API REST con fetch, sin librerias. La tabla se crea con
-// supabase_ranking.sql (ver ese archivo).
-
-// Datos del proyecto: Supabase > Project Settings > API
-// La clave "publishable" es publica: puede ir en el codigo del navegador.
-// La seguridad la ponen las politicas de la tabla (supabase_ranking.sql).
 var SUPABASE_URL = 'https://cyvzjrvvyjyuhegcfeuv.supabase.co';
 var SUPABASE_KEY = 'sb_publishable_m6ddvecxdvlvpgh3_H2RMQ_z7dQxZq1';
 var RANKING_SIZE = 5;
@@ -21,7 +14,6 @@ function rankingHeaders(extra)
     apikey: SUPABASE_KEY,
     'Content-Type': 'application/json'
   };
-  // Las claves "anon" antiguas son JWT y tambien van en Authorization
   if (SUPABASE_KEY.indexOf('eyJ') === 0) {
     headers.Authorization = 'Bearer ' + SUPABASE_KEY;
   }
@@ -35,7 +27,6 @@ function checkResponse(response)
   return response;
 }
 
-// Los mejores tiempos, de menor a mayor
 function fetchRanking()
 {
   var url = SUPABASE_URL + '/rest/v1/ranking?select=nombre,tiempo' +
@@ -45,7 +36,6 @@ function fetchRanking()
     .then(function(response) { return response.json(); });
 }
 
-// Guarda un tiempo y devuelve el puesto que ocupa
 function submitScore(name, time)
 {
   return fetch(SUPABASE_URL + '/rest/v1/ranking', {
@@ -57,7 +47,6 @@ function submitScore(name, time)
     .then(function() { return fetchPosition(time); });
 }
 
-// Puesto = numero de tiempos mejores + 1 (Supabase lo da en Content-Range)
 function fetchPosition(time)
 {
   var url = SUPABASE_URL + '/rest/v1/ranking?select=id&tiempo=lt.' + time + '&limit=1';
@@ -70,7 +59,6 @@ function fetchPosition(time)
     });
 }
 
-// Pinta la lista del ranking en la pantalla de inicio
 function showRanking()
 {
   var list = document.getElementById('ranking-list');
@@ -89,7 +77,6 @@ function showRanking()
       var item = document.createElement('li');
       var name = document.createElement('span');
       var time = document.createElement('span');
-      // textContent: los nombres los escriben otros jugadores
       name.textContent = row.nombre;
       time.textContent = formatTime(row.tiempo);
       item.appendChild(name);
@@ -102,7 +89,6 @@ function showRanking()
   });
 }
 
-// Nombre sin espacios sobrantes y de 16 caracteres como maximo
 function cleanPlayerName(text)
 {
   return text.replace(/\s+/g, ' ').trim().slice(0, 16);
@@ -122,6 +108,5 @@ function savePlayerName(name)
   try {
     window.localStorage.setItem(PLAYER_NAME_KEY, name);
   } catch (error) {
-    // Sin almacenamiento solo se pierde el nombre recordado
   }
 }

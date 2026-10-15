@@ -1,5 +1,4 @@
 <!doctype html>
-
 <html lang="es">
   <head>
     <meta charset="utf-8">
@@ -171,7 +170,6 @@
         background: #79f2a0;
       }
 
-      /* Pantalla de inicio con los controles */
       #start-screen {
         position: fixed;
         inset: 0;
@@ -187,7 +185,6 @@
         display: flex;
       }
 
-      /* Dos columnas: controles + nombre | ranking */
       #start-panel {
         display: grid;
         grid-template-columns: minmax(0, 1fr) minmax(0, 300px);
@@ -357,17 +354,6 @@
         color: #94a3b8;
       }
 
-      #start-credits {
-        grid-column: 1 / -1;
-        margin: 0;
-        font-size: 0.75rem;
-        color: #94a3b8;
-      }
-
-      #start-credits a {
-        color: #b6c4d6;
-      }
-
       #result-ranking {
         margin: -8px 0 20px;
         color: #ffd269;
@@ -449,12 +435,6 @@
           <ol id="ranking-list"></ol>
           <p id="ranking-status"></p>
         </section>
-        <p id="start-credits">
-          Modelos: <a href="https://sketchfab.com/3d-models/security-camera-7da2489681d749fda57ffdf1db9f0419" target="_blank" rel="noopener">Security Camera</a>
-          de Bryan (<a href="http://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC-BY 4.0</a>) ·
-          <a href="https://sketchfab.com/3d-models/police-car-9166b13b6ae341f4bfc093edb71d74f4" target="_blank" rel="noopener">Police car</a>
-          de Mateusz Woliński · Personajes y animaciones de Mixamo
-        </p>
       </div>
     </div>
 
@@ -466,7 +446,6 @@
     <script>var module = { exports: {} };</script>
     <script src="lib/tween_18.js"></script>
 
-    <!-- Mi codigo -->
     <script src="js/ranking.js"></script>
     <script src="js/main.js"></script>
   </body>
