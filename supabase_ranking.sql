@@ -1,3 +1,4 @@
+-- Tabla del ranking (tiempo en segundos)
 create table public.ranking (
   id bigint generated always as identity primary key,
   nombre text not null check (char_length(nombre) between 1 and 16),
@@ -5,6 +6,7 @@ create table public.ranking (
   creado timestamptz not null default now()
 );
 
+-- Cualquiera puede leer y guardar su tiempo, pero no cambiar ni borrar
 alter table public.ranking enable row level security;
 
 create policy "Todos pueden ver el ranking"

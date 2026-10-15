@@ -1,3 +1,4 @@
+// Ranking global con Supabase (su API REST con fetch)
 var SUPABASE_URL = 'https://cyvzjrvvyjyuhegcfeuv.supabase.co';
 var SUPABASE_KEY = 'sb_publishable_m6ddvecxdvlvpgh3_H2RMQ_z7dQxZq1';
 var RANKING_SIZE = 5;
@@ -8,6 +9,7 @@ function rankingConfigured()
   return SUPABASE_URL !== '' && SUPABASE_KEY !== '';
 }
 
+// La clave publishable va en la cabecera apikey
 function rankingHeaders(extra)
 {
   var headers = {
@@ -27,6 +29,7 @@ function checkResponse(response)
   return response;
 }
 
+// Top 5, de menor a mayor tiempo
 function fetchRanking()
 {
   var url = SUPABASE_URL + '/rest/v1/ranking?select=nombre,tiempo' +
@@ -36,6 +39,7 @@ function fetchRanking()
     .then(function(response) { return response.json(); });
 }
 
+// Guarda el tiempo y devuelve el puesto
 function submitScore(name, time)
 {
   return fetch(SUPABASE_URL + '/rest/v1/ranking', {
@@ -47,6 +51,7 @@ function submitScore(name, time)
     .then(function() { return fetchPosition(time); });
 }
 
+// Puesto = tiempos mejores + 1 (viene en content-range)
 function fetchPosition(time)
 {
   var url = SUPABASE_URL + '/rest/v1/ranking?select=id&tiempo=lt.' + time + '&limit=1';
@@ -59,6 +64,7 @@ function fetchPosition(time)
     });
 }
 
+// Lista del ranking en la pantalla de inicio
 function showRanking()
 {
   var list = document.getElementById('ranking-list');
@@ -77,6 +83,7 @@ function showRanking()
       var item = document.createElement('li');
       var name = document.createElement('span');
       var time = document.createElement('span');
+      // textContent para que nadie meta html con el nombre
       name.textContent = row.nombre;
       time.textContent = formatTime(row.tiempo);
       item.appendChild(name);
@@ -89,6 +96,7 @@ function showRanking()
   });
 }
 
+// Nombre sin espacios de mas y como mucho 16 letras
 function cleanPlayerName(text)
 {
   return text.replace(/\s+/g, ' ').trim().slice(0, 16);

@@ -1,14 +1,19 @@
+// Variables globales que van siempre
 var renderer, scene, camera, cenital, clock, stats;
 var player, playerMarker, exitZone, skybox;
+// Estado: intro, playing, levelComplete, won o lost
 var gameState = 'intro';
 var gameTime = 0;
+// Tiempo del nivel actual y de los niveles ya superados
 var levelTime = 0;
 var levelTimes = [];
 var playerName = loadPlayerName();
 
+// Alerta de 0 a 1, si llega a 1 te pillan
 var alertLevel = 0;
 var ALERT_FILL_TIME = 0.45;
 var ALERT_EMPTY_TIME = 3.0;
+// Para ajustar la dificultad
 var ENEMY_SPEED_FACTOR = 1.15;
 var VISION_RANGE_FACTOR = 1.1;
 var ALERT_COLOR = new THREE.Color(0xff2738);
@@ -16,6 +21,7 @@ var currentLevel = 0;
 var levelToken = 0;
 var firstPerson = true;
 
+// Nombre, frase y pista de cada nivel
 var levelNames = [
   'Prácticas del máster IARFID',
   'Pasillos del edificio 1B',
@@ -32,6 +38,7 @@ var levelHints = [
   'Usa setos y palmeras como cobertura y vigila el coche patrulla'
 ];
 
+// colliders: cajas para chocar / occluders: mallas que tapan la vision
 var colliders = [];
 var occluders = [];
 var securityCameras = [];
@@ -39,6 +46,7 @@ var guards = [];
 var policeCars = [];
 var mixers = [];
 
+// Cargadores
 var textureLoader = new THREE.TextureLoader();
 var fbxLoader = new THREE.FBXLoader();
 var gltfLoader = new THREE.GLTFLoader();
@@ -46,6 +54,7 @@ var textureCache = {};
 var environmentMap = null;
 var pendingLoads = 0;
 
+// Modelos de Mixamo (vienen en cm, por eso la escala 0.01)
 var GUARD_MODEL = 'models/Unarmed Walk Forward.fbx';
 var PLAYER_MODEL = 'models/Sneaking Forward.fbx';
 var PLAYER_MODEL_SCALE = 0.01;
@@ -55,6 +64,7 @@ var playerModel = null;
 var playerModelLoading = false;
 var GUARD_MODEL_SCALE = 0.01;
 var GUARD_WALK_SPEED = 1.3;
+// Modelos GLTF
 var CAR_MODEL = 'models/police-car/scene.gltf';
 var CAMERA_MODEL = 'models/security_camera/scene.gltf';
 var CAMERA_HEIGHT = 2.7;
@@ -62,26 +72,31 @@ var CAMERA_ARM_LENGTH = 0.65;
 var modelCache = {};
 var CAR_LENGTH = 5.0;
 
+// Caras del cielo en el orden +X, -X, +Y, -Y, +Z, -Z
 var SKYBOX_FACES = [
   'images/skybox/Right.jpg', 'images/skybox/Left.jpg',
   'images/skybox/Up.jpg', 'images/skybox/Down.jpg',
   'images/skybox/Front.jpg', 'images/skybox/Back.jpg'
 ];
 
+// Rayos para la vision de los enemigos y para la camara en 3a persona
 var visionRaycaster = new THREE.Raycaster();
 var cameraRaycaster = new THREE.Raycaster();
 var playerStart = new THREE.Vector3(-13, 0.03, 8.6);
 var exitPosition = new THREE.Vector3(13, 0, -9);
+// Giro de la vista con el raton
 var viewYaw = 0;
 var viewPitch = -0.06;
 var MOUSE_SENSITIVITY = 0.0022;
 
+// Medidas y velocidad del jugador
 var PLAYER_RADIUS = 0.55;
 var PLAYER_SPEED = 4.8;
 var PLAYER_EYE_HEIGHT = 1.62;
 var THIRD_PERSON_DISTANCE = 4.2;
 var THIRD_PERSON_HEIGHT = 2.1;
 
+// Progreso de la entrada de camara al empezar un nivel
 var introAnimation = { progress: 1 };
 
 var controls = {
@@ -91,8 +106,11 @@ var controls = {
   moveRight: false
 };
 
+// 1-inicializa
 init();
+// 2-crea la escena
 loadScene();
+// 3-renderiza
 render();
 
 function init()
@@ -104,10 +122,13 @@ function init()
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.outputEncoding = THREE.sRGBEncoding;
+  // Borrado a mano porque se pintan dos vistas (principal y minimapa)
   renderer.autoClear = false;
+  // Las sombras se calculan una vez por frame, no en cada vista
   renderer.shadowMap.autoUpdate = false;
   document.getElementById('container').appendChild(renderer.domElement);
 
+  // Monitor de FPS
   stats = new Stats();
   stats.showPanel(0);
   stats.domElement.style.left = 'auto';
@@ -120,14 +141,17 @@ function init()
   var aspectRatio = window.innerWidth / window.innerHeight;
   camera = new THREE.PerspectiveCamera(68, aspectRatio, 0.05, 400);
 
+  // Camara cenital del minimapa (con este near no se ve el techo)
   cenital = new THREE.OrthographicCamera(-14, 14, 14, -14, 36.3, 80);
   cenital.position.set(0, 40, 0);
   cenital.up.set(0, 0, -1);
   cenital.lookAt(0, 0, 0);
 
+  // Mapa de entorno con las mismas imagenes que el cielo
   environmentMap = new THREE.CubeTextureLoader().load(SKYBOX_FACES);
   environmentMap.encoding = THREE.sRGBEncoding;
 
+  // Eventos de ventana, teclado y raton
   window.addEventListener('resize', updateAspectRatio);
   document.addEventListener('keydown', onKeyDown);
   document.addEventListener('keyup', onKeyUp);
@@ -135,6 +159,7 @@ function init()
   document.addEventListener('pointerlockchange', onPointerLockChange);
   window.addEventListener('blur', clearControls);
   renderer.domElement.addEventListener('click', requestMouseControl);
+  // Pantalla de inicio: nombre y ranking
   document.getElementById('player-name').value = playerName;
   document.getElementById('start-form').addEventListener('submit', startFromForm);
   showRanking();
@@ -143,6 +168,7 @@ function init()
 
 function loadScene()
 {
+  // Con ?nivel=2 o ?nivel=3 se empieza en otro nivel (para probar)
   var requestedLevel = Number(
     new URLSearchParams(window.location.search).get('nivel')
   ) - 1;
@@ -152,11 +178,13 @@ function loadScene()
   loadLevel(initialLevel);
 }
 
+// Monta un nivel desde cero
 function loadLevel(levelIndex)
 {
   if (levelIndex === 0) levelTimes = [];
   levelTime = 0;
   currentLevel = levelIndex;
+  // Para descartar cargas que lleguen de un nivel anterior
   levelToken++;
   gameTime = 0;
   clearControls();
@@ -171,6 +199,7 @@ function loadLevel(levelIndex)
   skybox = null;
   pendingLoads = 0;
 
+  // Color de fondo de cada nivel
   if (currentLevel === 2) {
     scene.background = new THREE.Color(0x8ebed9);
   } else if (currentLevel === 1) {
@@ -205,6 +234,7 @@ function loadLevel(levelIndex)
   resetGame();
 }
 
+// Texturas con repeticion, se guardan para no cargarlas dos veces
 function loadTexture(path, repeatX, repeatY)
 {
   var key = path + '|' + repeatX + '|' + repeatY;
@@ -220,6 +250,7 @@ function loadTexture(path, repeatX, repeatY)
   return texture;
 }
 
+// Materiales: mate (Lambert), brillante (Phong) y luminoso (Basic)
 function createMatteMaterial(color, texture)
 {
   var options = { color: color };
@@ -243,6 +274,7 @@ function createGlowMaterial(color)
   return new THREE.MeshBasicMaterial({ color: color });
 }
 
+// Luces: ambiental, direccional con sombras y puntual de relleno
 function createLights()
 {
   var outdoor = currentLevel === 2;
@@ -283,6 +315,7 @@ function createLights()
   scene.add(fillLight);
 }
 
+// Nivel 1: clase de practicas del master IARFID
 function createDataCenterLevel()
 {
   playerStart.set(-13, 0.03, 8.6);
@@ -295,6 +328,7 @@ function createDataCenterLevel()
   createSecurityCamera(15.2, 5, -Math.PI / 2, 0.62, 3.4);
   createSecurityCamera(6, 11.2, Math.PI, 0.5, 0.8, 9);
 
+  // Guardias con su ruta (puntos x, z)
   var dataGuard = { speed: 2.0 };
   createGuard([
     [-12, -7], [-5, -7], [-5, -4], [-12, -4]
@@ -310,6 +344,7 @@ function createDataCenterLevel()
   ], 1.0, dataGuard);
 }
 
+// Techo: solo se ve desde abajo, asi no tapa el minimapa
 function createCeiling(width, depth, height, color)
 {
   var ceiling = new THREE.Mesh(
@@ -332,6 +367,7 @@ function createFloor(width, depth, material, name)
   return floor;
 }
 
+// Laboratorio: suelo, paredes, tabiques y racks
 function createWarehouse()
 {
   createCeiling(32, 24, 4.15, 0x263544);
@@ -374,6 +410,7 @@ function createWarehouse()
   createServerBank(0, -7, 4, 3, 2.6);
 }
 
+// Caja fija: obstaculo para chocar y tambien tapa la vision
 function createStaticBox(name, x, y, z, width, height, depth, material)
 {
   var mesh = new THREE.Mesh(
@@ -408,6 +445,7 @@ function createLightStrip(x, y, z, width, depth)
   scene.add(strip);
 }
 
+// Fila de racks con modulos y leds
 function createServerBank(x, z, width, depth, height)
 {
   var group = new THREE.Group();
@@ -499,6 +537,7 @@ function createServerBank(x, z, width, depth, height)
   });
 }
 
+// Nivel 2: pasillos del edificio 1B
 function createOfficeLevel()
 {
   playerStart.set(-19, 0.03, 13);
@@ -575,6 +614,7 @@ function createOfficeLevel()
   ], 1.8, officeGuard);
 }
 
+// Luz puntual del techo
 function createCeilingLamp(x, z)
 {
   var light = new THREE.PointLight(0xdceaff, 0.42, 11, 1.8);
@@ -583,6 +623,7 @@ function createCeilingLamp(x, z)
   scene.add(light);
 }
 
+// Mesa con patas, mampara y dos pantallas
 function createOfficeDesk(x, z, width, depth)
 {
   var group = new THREE.Group();
@@ -651,6 +692,7 @@ function createOfficeDesk(x, z, width, depth)
   });
 }
 
+// Nivel 3: campus de Vera
 function createOutdoorLevel()
 {
   playerStart.set(-23, 0.03, 16);
@@ -663,6 +705,7 @@ function createOutdoorLevel()
     loadTexture('images/grass.png', 40, 40)
   ), 'hierba');
 
+  // Carreteras en tramos que no se pisan, si no hay z-fighting
   createRoad(-4, 4, -19, 19);
   createRoad(-26, -4, 8, 12);
   createRoad(4, 26, 8, 12);
@@ -720,6 +763,7 @@ function createOutdoorLevel()
   ], 0.8, outdoorGuard);
 }
 
+// Cielo: cubo grande con las caras por dentro
 function createSkybox()
 {
   var materials = SKYBOX_FACES.map(function(path) {
@@ -733,6 +777,7 @@ function createSkybox()
   scene.add(skybox);
 }
 
+// Cada cuantos metros se repite la textura del asfalto
 var ROAD_TILE = 6;
 
 function createRoad(minX, maxX, minZ, maxZ)
@@ -741,6 +786,7 @@ function createRoad(minX, maxX, minZ, maxZ)
   var centerZ = (minZ + maxZ) / 2;
   var geometry = new THREE.PlaneGeometry(maxX - minX, maxZ - minZ);
 
+  // UVs segun la posicion en el mundo para que los tramos casen
   var position = geometry.attributes.position;
   var uv = geometry.attributes.uv;
   for (var i = 0; i < position.count; i++) {
@@ -772,6 +818,7 @@ function createGroundPatch(x, z, width, depth, material)
   scene.add(patch);
 }
 
+// Valla: dos barras y postes cada 3 m
 function createFenceSegment(x, z, length, horizontal)
 {
   var group = new THREE.Group();
@@ -821,6 +868,7 @@ function createFenceSegment(x, z, length, horizontal)
   });
 }
 
+// Palmera: tronco, 8 hojas y 3 cocos
 function createPalmTree(x, z, scale)
 {
   var group = new THREE.Group();
@@ -884,6 +932,7 @@ function createPalmTree(x, z, scale)
   });
 }
 
+// Seto con su jardinera
 function createHedge(x, z, width, depth, height)
 {
   var hedge = new THREE.Mesh(
@@ -914,6 +963,7 @@ function createHedge(x, z, width, depth, height)
   });
 }
 
+// Coche de policia. Si tiene ruta patrulla con faros y campo de vision
 function createPoliceCar(x, z, angle, routeCoordinates)
 {
   var group = new THREE.Group();
@@ -965,6 +1015,7 @@ function createPoliceCar(x, z, angle, routeCoordinates)
       maxZ: z + (alongX ? 1.1 : CAR_LENGTH / 2)
     });
 
+    // Caja invisible para los rayos, el modelo tiene demasiados triangulos
     var blocker = new THREE.Mesh(
       new THREE.BoxGeometry(2.2, 1.5, CAR_LENGTH),
       new THREE.MeshBasicMaterial()
@@ -981,6 +1032,7 @@ function createPoliceCar(x, z, angle, routeCoordinates)
   loadCarModel(group);
 }
 
+// Carga el GLTF del coche
 function loadCarModel(group)
 {
   var token = levelToken;
@@ -999,6 +1051,7 @@ function loadCarModel(group)
   });
 }
 
+// Pone el coche a lo largo de Z, lo escala a 5 m y lo apoya en el suelo
 function normalizeCarModel(model)
 {
   var wrapper = new THREE.Group();
@@ -1026,6 +1079,7 @@ function normalizeCarModel(model)
     if (!child.isMesh) return;
     child.castShadow = true;
     child.receiveShadow = true;
+    // El cristal con transmission va muy lento, se cambia por Phong
     if (child.material.transmission) {
       child.material = new THREE.MeshPhongMaterial({
         color: 0x6f8fa8,
@@ -1039,6 +1093,7 @@ function normalizeCarModel(model)
   return wrapper;
 }
 
+// Jugador: ladron hecho con primitivas mientras carga el FBX
 function createPlayer()
 {
   var group = new THREE.Group();
@@ -1182,6 +1237,7 @@ function createThiefLeg(clothMaterial, shoeMaterial, x)
   return leg;
 }
 
+// Modelo animado del jugador
 function loadPlayerModel()
 {
   if (playerModel) {
@@ -1280,6 +1336,7 @@ function loadPlayerIdle()
   });
 }
 
+// Andar agachado o reposo
 function setPlayerAnimation(moving)
 {
   var walk = player.userData.walkAction;
@@ -1304,6 +1361,7 @@ function setPlayerAnimation(moving)
   }
 }
 
+// Flecha del jugador, solo se ve en el minimapa
 function createPlayerMarker()
 {
   var group = new THREE.Group();
@@ -1321,6 +1379,7 @@ function createPlayerMarker()
   return group;
 }
 
+// Zona verde de salida
 function createExit()
 {
   var group = new THREE.Group();
@@ -1352,6 +1411,7 @@ function createExit()
   return group;
 }
 
+// Los GLTF sin esqueleto se cargan una vez y despues se clonan
 function loadSharedModel(url, onLoad)
 {
   var entry = modelCache[url];
@@ -1386,6 +1446,7 @@ function loadSharedModel(url, onLoad)
   });
 }
 
+// Material del GLTF a Phong
 function toPhongMaterial(material)
 {
   var phong = new THREE.MeshPhongMaterial({
@@ -1400,6 +1461,7 @@ function toPhongMaterial(material)
   return phong;
 }
 
+// Camara de seguridad: soporte, cabezal que gira, foco y campo de vision
 function createSecurityCamera(
   x, z, baseAngle, sweep, phase, customRange, customAngle
 )
@@ -1469,6 +1531,7 @@ function createSecurityCamera(
 
   var spot = new THREE.SpotLight(0xffd86a, 1.25, range, halfAngle, 0.35, 1.6);
   spot.position.set(0, 0.2, 0.6);
+  // Sin sombras: cada foco con sombra es otra pasada de toda la escena
   spot.castShadow = false;
   pivot.add(spot);
 
@@ -1490,6 +1553,7 @@ function createSecurityCamera(
   });
 }
 
+// El modelo se usa dos veces: una para el brazo y otra para el cabezal
 function attachCameraModel(model, mount, head)
 {
   var scale = 0.09;
@@ -1530,6 +1594,7 @@ function splitCameraModel(model, keepArm)
   });
 }
 
+// Pilar para la camara en el exterior
 function createCameraColumn(group, x, z, angle)
 {
   var size = 0.5;
@@ -1554,6 +1619,7 @@ function createCameraColumn(group, x, z, angle)
   });
 }
 
+// Guardia que recorre una ruta
 function createGuard(routeCoordinates, phase, options)
 {
   options = options || {};
@@ -1591,6 +1657,7 @@ function createGuard(routeCoordinates, phase, options)
   loadGuardModel(guard);
 }
 
+// Modelo animado del guardia
 function loadGuardModel(guard)
 {
   var token = levelToken;
@@ -1638,6 +1705,7 @@ function loadGuardModel(guard)
   });
 }
 
+// Guardia de primitivas por si no carga el FBX
 function createGuardFallback(guard)
 {
   var group = guard.group;
@@ -1741,6 +1809,7 @@ function createGuardLeg(material, x)
   return leg;
 }
 
+// Cono de vision en el suelo (abanico de triangulos)
 function createVisionField(range, halfAngle, color, opacity)
 {
   var segments = 24;
@@ -1780,8 +1849,10 @@ function createVisionField(range, halfAngle, color, opacity)
   return field;
 }
 
+// Teclado
 function onKeyDown(event)
 {
+  // Mientras se escribe el nombre no se mueve
   if (event.target.tagName === 'INPUT') return;
 
   switch (event.code) {
@@ -1810,11 +1881,13 @@ function onKeyDown(event)
   }
 }
 
+// R: partida nueva desde el nivel 1
 function restartGame()
 {
   loadLevel(0);
 }
 
+// Boton empezar: guarda el nombre y captura el raton
 function startFromForm(event)
 {
   event.preventDefault();
@@ -1827,6 +1900,7 @@ function startFromForm(event)
   playerName = name;
   input.value = name;
   savePlayerName(name);
+  // Sin quitar el foco WASD seguiria escribiendo en el input
   input.blur();
   requestMouseControl();
 }
@@ -1861,12 +1935,14 @@ function clearControls()
   controls.moveRight = false;
 }
 
+// F: primera o tercera persona
 function toggleCameraMode()
 {
   firstPerson = !firstPerson;
   player.visible = !firstPerson;
 }
 
+// Pointer lock para mirar con el raton
 function requestMouseControl()
 {
   var canPlay = gameState === 'playing' || gameState === 'intro';
@@ -1889,6 +1965,7 @@ function onPointerLockChange()
   if (!mouseCaptured) clearControls();
 }
 
+// Giro de la vista con el raton
 function onMouseMove(event)
 {
   if (
@@ -1912,12 +1989,14 @@ function updateAspectRatio()
   camera.updateProjectionMatrix();
 }
 
+// Actualizacion de cada frame
 function update(delta, time)
 {
   TWEEN.update(time);
 
   var mouseCaptured = document.pointerLockElement === renderer.domElement;
 
+  // Sin el raton capturado el juego esta en pausa
   if (gameState === 'playing' && mouseCaptured) {
     gameTime += delta;
     levelTime += delta;
@@ -1927,6 +2006,7 @@ function update(delta, time)
     updatePoliceCars(delta);
     updateMixers(delta);
 
+    // Matrices al dia antes de pedir posiciones globales
     scene.updateMatrixWorld(true);
     checkEnemyVision(delta);
 
@@ -1944,6 +2024,7 @@ function update(delta, time)
   stats.update();
 }
 
+// Movimiento con WASD segun hacia donde mira la camara
 function updatePlayer(delta)
 {
   var direction = new THREE.Vector3();
@@ -1976,6 +2057,7 @@ function updatePlayer(delta)
   direction.normalize();
   var movement = direction.multiplyScalar(PLAYER_SPEED * delta);
 
+  // X y Z por separado para poder deslizar por las paredes
   var nextX = player.position.x + movement.x;
   if (isPositionFree(nextX, player.position.z, PLAYER_RADIUS)) {
     player.position.x = nextX;
@@ -1998,6 +2080,7 @@ function setThiefPose(walk)
   player.userData.rightLeg.rotation.x = walk;
 }
 
+// Choque circulo contra caja con el punto mas cercano de la caja
 function isPositionFree(x, z, radius)
 {
   for (var i = 0; i < colliders.length; i++) {
@@ -2014,6 +2097,7 @@ function isPositionFree(x, z, radius)
   return true;
 }
 
+// Las camaras giran de lado a lado con un seno
 function updateSecurityCameras()
 {
   securityCameras.forEach(function(securityCamera) {
@@ -2022,6 +2106,7 @@ function updateSecurityCameras()
   });
 }
 
+// Avanza hacia el siguiente punto de la ruta
 function followRoute(mover, delta, radius)
 {
   var target = mover.route[mover.routeIndex];
@@ -2069,6 +2154,7 @@ function updatePoliceCars(delta)
     if (!car.route) return;
     followRoute(car, delta, 0.6);
 
+    // Jugador en coordenadas del coche para ver si lo atropella
     var local = car.group.worldToLocal(player.position.clone());
     if (Math.abs(local.x) < 1.3 && Math.abs(local.z) < CAR_LENGTH / 2 + 0.4) {
       finishGame(false, car.field, '¡El coche patrulla te ha alcanzado!');
@@ -2083,6 +2169,7 @@ function updateMixers(delta)
   });
 }
 
+// Sirena: rojo y azul
 function updateBeacons()
 {
   var red = Math.floor(clock.elapsedTime * 4) % 2 === 0;
@@ -2092,6 +2179,7 @@ function updateBeacons()
   });
 }
 
+// Que enemigos ven al jugador
 function checkEnemyVision(delta)
 {
   var origin = new THREE.Vector3();
@@ -2135,6 +2223,7 @@ function checkEnemyVision(delta)
   updateAlert(delta, watchers, message);
 }
 
+// La alerta sube mientras te ven y baja poco a poco al esconderte
 function updateAlert(delta, watchers, message)
 {
   if (watchers.length > 0) {
@@ -2181,6 +2270,7 @@ function updateAlertHud()
   fill.style.background = 'hsl(' + Math.round(45 - 45 * alertLevel) + ', 100%, 55%)';
 }
 
+// Te ve si estas en su alcance, dentro del angulo y no hay nada en medio
 function canSeePlayer(origin, forward, range, halfAngle)
 {
   var playerTarget = new THREE.Vector3(
@@ -2205,6 +2295,7 @@ function canSeePlayer(origin, forward, range, halfAngle)
     return false;
   }
 
+  // Rayo hasta el jugador contra los obstaculos
   var rayDirection = playerTarget.clone().sub(origin);
   var playerDistance = rayDirection.length();
   rayDirection.normalize();
@@ -2216,6 +2307,7 @@ function canSeePlayer(origin, forward, range, halfAngle)
   return intersections.length === 0;
 }
 
+// Nivel superado al llegar a la zona verde
 function checkExit()
 {
   var distanceToExit = Math.hypot(
@@ -2236,6 +2328,7 @@ function updateExitAnimation()
   exitZone.rotation.y = clock.elapsedTime * 0.22;
 }
 
+// Camara en 1a o 3a persona, y la entrada al empezar
 function updateCamera()
 {
   var forward = new THREE.Vector3(-Math.sin(viewYaw), 0, -Math.cos(viewYaw));
@@ -2283,6 +2376,7 @@ function updateCamera()
   }
 }
 
+// Camara detras del jugador, si choca con algo se acerca
 function thirdPersonPosition(forward)
 {
   var back = THIRD_PERSON_DISTANCE * Math.cos(viewPitch);
@@ -2312,6 +2406,7 @@ function thirdPersonPosition(forward)
   return desired;
 }
 
+// Fin del nivel: pasar de nivel, ganar o perder
 function finishGame(playerWon, detectedField, customMessage)
 {
   if (gameState !== 'playing') return;
@@ -2359,6 +2454,7 @@ function finishGame(playerWon, detectedField, customMessage)
   document.getElementById('result').classList.add('visible');
 }
 
+// Al acabar los 3 niveles se guarda el tiempo en el ranking
 function sendScoreToRanking()
 {
   var text = document.getElementById('result-ranking');
@@ -2391,6 +2487,7 @@ function handleResultAction()
   }
 }
 
+// Tiempo en formato m:ss.d
 function formatTime(seconds)
 {
   var minutes = Math.floor(seconds / 60);
@@ -2447,6 +2544,7 @@ function finishLoad(token)
   updateLoadingHud();
 }
 
+// Deja el nivel como al principio
 function resetGame()
 {
   gameTime = 0;
@@ -2495,6 +2593,7 @@ function resetGame()
   updateCamera();
 }
 
+// Entrada de camara con tween
 function startIntro()
 {
   gameState = 'intro';
@@ -2515,6 +2614,7 @@ function restoreVisionField(field)
   field.material.opacity = field.userData.originalOpacity;
 }
 
+// Render: vista principal + minimapa
 function render(time)
 {
   requestAnimationFrame(render);
@@ -2525,12 +2625,14 @@ function render(time)
   var height = window.innerHeight;
   var miniSize = Math.floor(Math.min(width, height) / 4);
 
+  // Vista principal
   renderer.shadowMap.needsUpdate = true;
   renderer.setScissorTest(false);
   renderer.setViewport(0, 0, width, height);
   renderer.clear();
   renderer.render(scene, camera);
 
+  // Minimapa abajo a la izquierda (viewport + scissor)
   playerMarker.visible = true;
   cenital.position.set(player.position.x, 40, player.position.z);
   cenital.lookAt(player.position.x, 0, player.position.z);
