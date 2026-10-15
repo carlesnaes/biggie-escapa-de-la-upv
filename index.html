@@ -1,0 +1,473 @@
+<!doctype html>
+
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Biggie escapa de la UPV</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        overflow: hidden;
+        background: #101722;
+        color: #ffffff;
+        font-family: Arial, sans-serif;
+      }
+
+      canvas {
+        display: block;
+      }
+
+      #hud {
+        position: fixed;
+        top: 16px;
+        left: 16px;
+        z-index: 2;
+        padding: 12px 16px;
+        border: 1px solid rgba(255, 255, 255, 0.22);
+        border-radius: 8px;
+        background: rgba(8, 13, 20, 0.82);
+        line-height: 1.45;
+        pointer-events: none;
+      }
+
+      #hud strong {
+        color: #79f2a0;
+      }
+
+      #mouse-status {
+        color: #73d9ff;
+      }
+
+      #loading-status {
+        color: #ffd269;
+      }
+
+      #minimap-label {
+        position: fixed;
+        left: 16px;
+        bottom: 8px;
+        z-index: 2;
+        font-size: 0.8rem;
+        color: rgba(255, 255, 255, 0.75);
+        pointer-events: none;
+      }
+
+      #alert {
+        position: fixed;
+        top: 16px;
+        left: 50%;
+        z-index: 2;
+        width: 260px;
+        transform: translateX(-50%);
+        text-align: center;
+        font-weight: bold;
+        letter-spacing: 1px;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.2s;
+      }
+
+      #alert.visible {
+        opacity: 1;
+      }
+
+      #alert-track {
+        height: 10px;
+        margin-top: 4px;
+        border: 1px solid rgba(255, 255, 255, 0.5);
+        border-radius: 5px;
+        background: rgba(8, 13, 20, 0.7);
+        overflow: hidden;
+      }
+
+      #alert-fill {
+        width: 0%;
+        height: 100%;
+        background: #ffcc33;
+      }
+
+      #crosshair {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        z-index: 2;
+        width: 18px;
+        height: 18px;
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+        filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9));
+      }
+
+      #crosshair::before,
+      #crosshair::after {
+        content: '';
+        position: absolute;
+        background: rgba(255, 255, 255, 0.9);
+      }
+
+      #crosshair::before {
+        top: 8px;
+        left: 1px;
+        width: 16px;
+        height: 2px;
+      }
+
+      #crosshair::after {
+        top: 1px;
+        left: 8px;
+        width: 2px;
+        height: 16px;
+      }
+
+      #result {
+        position: fixed;
+        inset: 0;
+        z-index: 3;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: rgba(4, 7, 12, 0.72);
+      }
+
+      #result.visible {
+        display: flex;
+      }
+
+      #result-panel {
+        min-width: 300px;
+        padding: 28px;
+        border-radius: 12px;
+        background: #172231;
+        text-align: center;
+        box-shadow: 0 18px 60px rgba(0, 0, 0, 0.45);
+      }
+
+      #result-title {
+        margin: 0 0 10px;
+      }
+
+      #result-message {
+        margin: 0 0 20px;
+        color: #cbd5e1;
+      }
+
+      #restart-button {
+        padding: 10px 18px;
+        border: 0;
+        border-radius: 6px;
+        background: #58d681;
+        color: #0b1b11;
+        font-size: 1rem;
+        font-weight: bold;
+        cursor: pointer;
+      }
+
+      #restart-button:hover {
+        background: #79f2a0;
+      }
+
+      /* Pantalla de inicio con los controles */
+      #start-screen {
+        position: fixed;
+        inset: 0;
+        z-index: 4;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+        background: rgba(4, 7, 12, 0.72);
+      }
+
+      #start-screen.visible {
+        display: flex;
+      }
+
+      /* Dos columnas: controles + nombre | ranking */
+      #start-panel {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 300px);
+        gap: 28px;
+        width: 100%;
+        max-width: 860px;
+        max-height: calc(100vh - 32px);
+        overflow-y: auto;
+        padding: 28px;
+        border-radius: 12px;
+        background: #172231;
+        text-align: center;
+        box-shadow: 0 18px 60px rgba(0, 0, 0, 0.45);
+      }
+
+      @media (max-width: 760px) {
+        #start-panel {
+          grid-template-columns: minmax(0, 1fr);
+          padding: 20px;
+        }
+      }
+
+      #start-panel h1 {
+        margin: 0 0 8px;
+      }
+
+      #start-goal {
+        margin: 0 0 20px;
+        color: #cbd5e1;
+      }
+
+      #start-controls {
+        margin: 0 0 22px;
+        padding: 0;
+        list-style: none;
+        text-align: left;
+      }
+
+      #start-controls li {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 7px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      #start-controls .keys {
+        flex: 0 0 230px;
+        white-space: nowrap;
+      }
+
+      kbd {
+        display: inline-block;
+        min-width: 24px;
+        margin: 1px;
+        padding: 2px 6px;
+        border: 1px solid rgba(255, 255, 255, 0.35);
+        border-bottom-width: 3px;
+        border-radius: 5px;
+        background: rgba(255, 255, 255, 0.08);
+        font-family: inherit;
+        font-size: 0.85rem;
+        text-align: center;
+      }
+
+      #start-form {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 8px;
+        text-align: left;
+      }
+
+      #start-form label {
+        grid-column: 1 / -1;
+        font-size: 0.9rem;
+        color: #cbd5e1;
+      }
+
+      #player-name {
+        min-width: 0;
+        padding: 10px 12px;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 6px;
+        background: #0e1620;
+        color: #ffffff;
+        font-size: 1rem;
+      }
+
+      #player-name:focus {
+        outline: 2px solid #58d681;
+        outline-offset: 1px;
+      }
+
+      #start-button {
+        padding: 10px 22px;
+        border: 0;
+        border-radius: 6px;
+        background: #58d681;
+        color: #0b1b11;
+        font-size: 1rem;
+        font-weight: bold;
+        cursor: pointer;
+        animation: start-pulse 1.4s ease-in-out infinite;
+      }
+
+      @keyframes start-pulse {
+        50% { background: #79f2a0; }
+      }
+
+      #start-ranking {
+        padding: 16px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.04);
+        text-align: left;
+      }
+
+      #start-ranking h2 {
+        margin: 0;
+        font-size: 1.2rem;
+        color: #ffd269;
+      }
+
+      .ranking-subtitle {
+        margin: 2px 0 12px;
+        font-size: 0.8rem;
+        color: #94a3b8;
+      }
+
+      #ranking-list {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        counter-reset: puesto;
+      }
+
+      #ranking-list li {
+        display: flex;
+        gap: 10px;
+        padding: 6px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        counter-increment: puesto;
+      }
+
+      #ranking-list li::before {
+        content: counter(puesto) '.';
+        flex: 0 0 24px;
+        color: #94a3b8;
+      }
+
+      #ranking-list li:nth-child(1)::before { color: #ffd269; }
+
+      #ranking-list li span:first-child {
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      #ranking-list li span:last-child {
+        font-variant-numeric: tabular-nums;
+        color: #79f2a0;
+      }
+
+      #ranking-status {
+        margin: 8px 0 0;
+        font-size: 0.9rem;
+        color: #94a3b8;
+      }
+
+      #start-credits {
+        grid-column: 1 / -1;
+        margin: 0;
+        font-size: 0.75rem;
+        color: #94a3b8;
+      }
+
+      #start-credits a {
+        color: #b6c4d6;
+      }
+
+      #result-ranking {
+        margin: -8px 0 20px;
+        color: #ffd269;
+      }
+
+      #result-ranking:empty {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="container"></div>
+    <div id="crosshair" aria-hidden="true"></div>
+
+    <div id="hud">
+      <strong>NIVEL <span id="level-number">1/3</span>:</strong>
+      <span id="level-name">Prácticas del máster IARFID</span><br>
+      <strong>OBJETIVO:</strong> llega a la zona verde<br>
+      WASD/flechas: moverse &nbsp;|&nbsp; Ratón: mirar &nbsp;|&nbsp; F: 1ª/3ª persona &nbsp;|&nbsp; R: reiniciar<br>
+      <strong>TIEMPO:</strong> <span id="time-level">0:00.0</span>
+      &nbsp;·&nbsp; total <span id="time-total">0:00.0</span><br>
+      <span id="level-hint">Usa los servidores como cobertura</span><br>
+      <span id="mouse-status">Haz clic en el escenario para jugar</span><br>
+      <span id="loading-status"></span>
+    </div>
+
+    <div id="minimap-label">Minimapa</div>
+
+    <div id="alert">
+      <span id="alert-text">¡TE ESTÁN VIENDO!</span>
+      <div id="alert-track"><div id="alert-fill"></div></div>
+    </div>
+
+    <div id="result" role="dialog" aria-live="polite" aria-modal="true">
+      <div id="result-panel">
+        <h1 id="result-title"></h1>
+        <p id="result-message"></p>
+        <p id="result-ranking"></p>
+        <button id="restart-button" type="button">Reiniciar partida</button>
+      </div>
+    </div>
+
+    <div id="start-screen" class="visible" role="dialog" aria-modal="true">
+      <div id="start-panel">
+        <div id="start-info">
+          <h1>Biggie escapa de la UPV</h1>
+          <p id="start-goal">Ayuda a Biggie a escaparse de la clase de prácticas del máster IARFID, cruzar los pasillos del edificio 1B y salir del campus de Vera sin que le vean las cámaras, los guardias ni el coche patrulla. En cada nivel, llega a la zona verde.</p>
+          <ul id="start-controls">
+            <li>
+              <span class="keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> o <kbd>↑</kbd><kbd>←</kbd><kbd>↓</kbd><kbd>→</kbd></span>
+              <span>moverse</span>
+            </li>
+            <li>
+              <span class="keys"><kbd>Ratón</kbd></span>
+              <span>mirar</span>
+            </li>
+            <li>
+              <span class="keys"><kbd>F</kbd></span>
+              <span>cambiar a 1ª / 3ª persona</span>
+            </li>
+            <li>
+              <span class="keys"><kbd>R</kbd></span>
+              <span>reiniciar desde el nivel 1</span>
+            </li>
+            <li>
+              <span class="keys"><kbd>Esc</kbd></span>
+              <span>pausa</span>
+            </li>
+          </ul>
+          <form id="start-form" autocomplete="off">
+            <label for="player-name">Tu nombre para el ranking</label>
+            <input id="player-name" type="text" maxlength="16" placeholder="Escribe tu nombre" required>
+            <button id="start-button" type="submit">Empezar</button>
+          </form>
+        </div>
+        <section id="start-ranking" aria-labelledby="ranking-title">
+          <h2 id="ranking-title">Ranking global</h2>
+          <p class="ranking-subtitle">Tiempo total de los 3 niveles</p>
+          <ol id="ranking-list"></ol>
+          <p id="ranking-status"></p>
+        </section>
+        <p id="start-credits">
+          Modelos: <a href="https://sketchfab.com/3d-models/security-camera-7da2489681d749fda57ffdf1db9f0419" target="_blank" rel="noopener">Security Camera</a>
+          de Bryan (<a href="http://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC-BY 4.0</a>) ·
+          <a href="https://sketchfab.com/3d-models/police-car-9166b13b6ae341f4bfc093edb71d74f4" target="_blank" rel="noopener">Police car</a>
+          de Mateusz Woliński · Personajes y animaciones de Mixamo
+        </p>
+      </div>
+    </div>
+
+    <script src="lib/three.min_r140.js"></script>
+    <script src="lib/stats.min.js"></script>
+    <script src="lib/GLTFLoader.js"></script>
+    <script src="js/inflate.min.js"></script>
+    <script src="js/FBXLoader.js"></script>
+    <script>var module = { exports: {} };</script>
+    <script src="lib/tween_18.js"></script>
+
+    <!-- Mi codigo -->
+    <script src="js/ranking.js"></script>
+    <script src="js/main.js"></script>
+  </body>
+</html>
