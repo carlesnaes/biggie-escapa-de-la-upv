@@ -19,16 +19,16 @@ var VISION_RANGE_FACTOR = 1.1;
 var ALERT_COLOR = new THREE.Color(0xff2738);
 var currentLevel = 0;
 var levelToken = 0;
-var firstPerson = true;
+var firstPerson = false;
 
 // Nombre, frase y pista de cada nivel
 var levelNames = [
-  'Prácticas del máster IARFID',
+  'Prácticas del MIARFID',
   'Pasillos del edificio 1B',
   'Campus de Vera'
 ];
 var levelEscapes = [
-  'de la clase de prácticas del máster IARFID',
+  'de la clase de prácticas del MIARFID',
   'de los pasillos del edificio 1B',
   'del campus de Vera'
 ];
@@ -316,7 +316,7 @@ function createLights()
   scene.add(fillLight);
 }
 
-// Nivel 1: clase de practicas del master IARFID
+// Nivel 1: clase de practicas del MIARFID
 function createDataCenterLevel()
 {
   playerStart.set(-13, 0.03, 8.6);
